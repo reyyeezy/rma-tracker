@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RMA Tracker</title>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; background: #f5f5f5; }
+    h1 { color: #333; }
+    form { background: white; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+    label { display: block; margin-top: 12px; font-weight: bold; color: #555; }
+    input, select, textarea { width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    button { margin-top: 16px; padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+    button:hover { background: #1d4ed8; }
+    .entries { background: white; border-radius: 8px; padding: 20px; }
+    .entry { border-bottom: 1px solid #eee; padding: 12px 0; }
+    .entry:last-child { border-bottom: none; }
+    .entry-serial { font-weight: bold; color: #2563eb; }
+    .entry-meta { font-size: 12px; color: #888; margin-top: 4px; }
+    .entry-notes { margin-top: 6px; color: #444; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-left: 8px; }
+    .badge-water { background: #dbeafe; color: #1d4ed8; }
+    .badge-power { background: #fef3c7; color: #92400e; }
+    .badge-mechanical { background: #f3f4f6; color: #374151; }
+    .badge-unknown { background: #fce7f3; color: #9d174d; }
+    .empty { color: #aaa; text-align: center; padding: 20px; }
+  </style>
+</head>
+<body>
+
+  <h1>RMA Device Tracker</h1>
+
+  <form id="rma-form">
+    <label>Serial Number</label>
+    <input type="text" id="serial" placeholder="e.g. AG53-00123" required>
+
+    <label>Failure Category</label>
+    <select id="category">
+      <option value="water">Water Ingress</option>
+      <option value="power">Power Issue</option>
+      <option value="mechanical">Mechanical Damage</option>
+      <option value="unknown">Unknown / NFF</option>
+    </select>
+
+    <label>Visual Inspection Notes</label>
+    <textarea id="notes" rows="3" placeholder="Describe what you observed..."></textarea>
+
+    <label>Disposition</label>
+    <select id="disposition">
+      <option value="scrap">Scrap</option>
+      <option value="repair">Send for Repair</option>
+      <option value="retest">Retest</option>
+      <option value="nff">NFF - Return</option>
+    </select>
+
+    <button type="submit">Log Entry</button>
+  </form>
+
+  <div class="entries">
+    <h2>Logged Entries</h2>
+    <div id="entry-list"></div>
+  </div>
+
+  <script>
+    const form = document.getElementById('rma-form');
+    const entryList = document.getElementById('entry-list');
+
+    function loadEntries() {
+      const entries = JSON.parse(localStorage.getItem('rma-entries') || '[]');
+      if (entries.length === 0) {
+        entryList.innerHTML = '<p class="empty">No entries yet.</p>';
+        return;
+      }
+      entryList.innerHTML = entries.map(e => `
+        <div class="entry">
+          <div>
+            <span class="entry-serial">${e.serial}</span>
+            <span class="badge badge-${e.category}">${e.category.toUpperCase()}</span>
+            <span style="font-size:12px;color:#555;margin-left:8px;">${e.disposition}</span>
+          </div>
+          <div class="entry-meta">${e.date}</div>
+          <div class="entry-notes">${e.notes || 'No notes.'}</div>
+        </div>
+      `).join('');
+    }
+
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const entries = JSON.parse(localStorage.getItem('rma-entries') || '[]');
+      entries.unshift({
+        serial: document.getElementById('serial').value,
+        category: document.getElementById('category').value,
+        notes: document.getElementById('notes').value,
+        disposition: document.getElementById('disposition').value,
+        date: new Date().toLocaleString()
+      });
+      localStorage.setItem('rma-entries', JSON.stringify(entries));
+      form.reset();
+      loadEntries();
+    });
+
+    loadEntries();
+  </script>
+
+</body>
+</html>
