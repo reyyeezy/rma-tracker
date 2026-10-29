@@ -1,113 +1,306 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RMA Tracker</title>
-  <style>
-    body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; background: #f5f5f5; }
-    h1 { color: #333; }
-    form { background: white; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
-    label { display: block; margin-top: 12px; font-weight: bold; color: #555; }
-    input, select, textarea { width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-    button { margin-top: 16px; padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
-    button:hover { background: #1d4ed8; }
-    .entries { background: white; border-radius: 8px; padding: 20px; }
-    .entry { border-bottom: 1px solid #eee; padding: 12px 0; }
-    .entry:last-child { border-bottom: none; }
-    .entry-serial { font-weight: bold; color: #2563eb; }
-    .entry-meta { font-size: 12px; color: #888; margin-top: 4px; }
-    .entry-notes { margin-top: 6px; color: #444; }
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-left: 8px; }
-    .badge-water { background: #dbeafe; color: #1d4ed8; }
-    .badge-power { background: #fef3c7; color: #92400e; }
-    .badge-mechanical { background: #f3f4f6; color: #374151; }
-    .badge-unknown { background: #fce7f3; color: #9d174d; }
-    .empty { color: #aaa; text-align: center; padding: 20px; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RMA Tracker</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --text: #1a1d23; --muted: #596273; --line: #e3e6eb;
+    --accent: #2563eb; --pass: #15803d; --fail: #b91c1c; --warn: #b45309; --on-fill: #fff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14161a; --card: #1d2026; --text: #e8eaed; --muted: #9aa3b2; --line: #2d3139;
+            --accent: #6b9bff; --pass: #4ade80; --fail: #f87171; --warn: #fbbf24; --on-fill: #0b0d10; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  button, select, input, textarea { font: inherit; color: inherit; }
+  button { background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+           padding: 7px 12px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
+  button.danger { color: var(--fail); }
+  input, select, textarea { background: var(--card); border: 1px solid var(--line);
+           border-radius: 8px; padding: 7px 10px; width: 100%; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .stat b { display: block; font-size: 22px; }
+  .stat span { color: var(--muted); font-size: 13px; }
+  .filters { display: grid; grid-template-columns: 1fr 180px; gap: 8px; margin-bottom: 12px; }
+  .unit { background: var(--card); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; }
+  .unit > summary { list-style: none; cursor: pointer; padding: 12px 14px; display: flex;
+                    gap: 12px; align-items: center; flex-wrap: wrap; }
+  .unit > summary::-webkit-details-marker { display: none; }
+  .serial { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .model { color: var(--muted); }
+  .spacer { flex: 1; }
+  .badge { font-size: 12px; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
+  .badge.pass { color: var(--pass); border-color: var(--pass); }
+  .badge.fail { color: var(--fail); border-color: var(--fail); }
+  .badge.warn { color: var(--warn); border-color: var(--warn); }
+  .detail { border-top: 1px solid var(--line); padding: 14px; display: grid; gap: 14px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  label.f { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+  .check { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .check:last-child { border-bottom: 0; }
+  .check .name { flex: 1; }
+  .tri { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .tri button { border: 0; border-radius: 0; padding: 4px 10px; font-size: 13px; background: transparent; }
+  .tri button.on-pass { background: var(--pass); color: var(--on-fill); }
+  .tri button.on-fail { background: var(--fail); color: var(--on-fill); }
+  .tri button.on-na { background: var(--muted); color: var(--on-fill); }
+  dialog { background: var(--card); color: var(--text); border: 1px solid var(--line);
+           border-radius: 12px; padding: 20px; width: min(480px, 92vw); }
+  dialog::backdrop { background: rgba(0,0,0,.45); }
+  dialog form { display: grid; gap: 12px; }
+  .empty { text-align: center; color: var(--muted); padding: 40px 0; }
+  .note { color: var(--muted); font-size: 13px; }
+  @media (max-width: 560px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .filters, .grid2 { grid-template-columns: 1fr; }
+  }
+</style>
 </head>
 <body>
+<main>
+  <h1>RMA Tracker</h1>
+  <p class="sub">Log returned devices, run a bench inspection checklist, and track each one to closure.
+    Data stays in this browser.</p>
 
-  <h1>RMA Device Tracker</h1>
-
-  <form id="rma-form">
-    <label>Serial Number</label>
-    <input type="text" id="serial" placeholder="e.g. AG53-00123" required>
-
-    <label>Failure Category</label>
-    <select id="category">
-      <option value="water">Water Ingress</option>
-      <option value="power">Power Issue</option>
-      <option value="mechanical">Mechanical Damage</option>
-      <option value="unknown">Unknown / NFF</option>
-    </select>
-
-    <label>Visual Inspection Notes</label>
-    <textarea id="notes" rows="3" placeholder="Describe what you observed..."></textarea>
-
-    <label>Disposition</label>
-    <select id="disposition">
-      <option value="scrap">Scrap</option>
-      <option value="repair">Send for Repair</option>
-      <option value="retest">Retest</option>
-      <option value="nff">NFF - Return</option>
-    </select>
-
-    <button type="submit">Log Entry</button>
-  </form>
-
-  <div class="entries">
-    <h2>Logged Entries</h2>
-    <div id="entry-list"></div>
+  <div class="bar">
+    <button class="primary" id="addBtn">+ Add unit</button>
+    <button id="checklistBtn">Edit checklist</button>
+    <button id="csvBtn">Export CSV</button>
+    <button id="demoBtn">Load demo data</button>
+    <button id="clearBtn" class="danger">Clear all</button>
   </div>
 
-  <script>
-    const form = document.getElementById('rma-form');
-    const entryList = document.getElementById('entry-list');
+  <div class="stats" id="stats"></div>
 
-    function loadEntries() {
-      const entries = JSON.parse(localStorage.getItem('rma-entries') || '[]');
-      if (entries.length === 0) {
-        entryList.innerHTML = '<p class="empty">No entries yet.</p>';
-        return;
-      }
-      entryList.innerHTML = entries.map((e, index) => `
-  <div class="entry">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-      <div>
-        <span class="entry-serial">${e.serial}</span>
-        <span class="badge badge-${e.category}">${e.category.toUpperCase()}</span>
-        <span style="font-size:12px;color:#555;margin-left:8px;">${e.disposition}</span>
-      </div>
-      <button onclick="deleteEntry(${index})" style="background:#fee2e2;color:#dc2626;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;">Delete</button>
+  <div class="filters">
+    <input id="search" type="search" placeholder="Search serial, model, or issue">
+    <select id="statusFilter"></select>
+  </div>
+
+  <div id="list"></div>
+</main>
+
+<dialog id="addDlg">
+  <form method="dialog" id="addForm">
+    <h2 style="margin:0">Add unit</h2>
+    <label class="f">Serial number<input name="serial" required placeholder="e.g. DEMO-00123"></label>
+    <label class="f">Model<input name="model" required placeholder="e.g. Widget Pro"></label>
+    <label class="f">Reported issue<textarea name="issue" rows="2" placeholder="What did the customer report?"></textarea></label>
+    <div class="bar" style="justify-content:flex-end;margin:0">
+      <button type="button" id="addCancel">Cancel</button>
+      <button class="primary" type="submit">Add</button>
     </div>
-    <div class="entry-meta">${e.date}</div>
-    <div class="entry-notes">${e.notes || 'No notes.'}</div>
-  </div>
-`).join('');
-    }
+  </form>
+</dialog>
 
-    form.addEventListener('submit', function(e) {
-      e.preventDefault();
-      const entries = JSON.parse(localStorage.getItem('rma-entries') || '[]');
-      entries.unshift({
-        serial: document.getElementById('serial').value,
-        category: document.getElementById('category').value,
-        notes: document.getElementById('notes').value,
-        disposition: document.getElementById('disposition').value,
-        date: new Date().toLocaleString()
-      });
-      localStorage.setItem('rma-entries', JSON.stringify(entries));
-      form.reset();
-      loadEntries();
-    });
-    function deleteEntry(index) {
-  const entries = JSON.parse(localStorage.getItem('rma-entries') || '[]');
-  entries.splice(index, 1);
-  localStorage.setItem('rma-entries', JSON.stringify(entries));
-  loadEntries();
+<dialog id="clDlg">
+  <form method="dialog" id="clForm">
+    <h2 style="margin:0">Inspection checklist</h2>
+    <p class="note" style="margin:0">One item per line. Applies to units you add after saving; existing units keep the checklist they were created with.</p>
+    <textarea id="clText" rows="10"></textarea>
+    <div class="bar" style="justify-content:flex-end;margin:0">
+      <button type="button" id="clCancel">Cancel</button>
+      <button class="primary" type="submit">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const KEY = 'rma-tracker-v1';
+const STATUSES = ['Received', 'Inspecting', 'Awaiting action', 'Closed'];
+const DEFAULT_CHECKLIST = [
+  'Visual check: no cracks or physical damage',
+  'Connectors and ports intact',
+  'Powers on',
+  'Status LEDs behave correctly',
+  'Firmware version recorded',
+  'Reported issue reproduced',
+  'Passes functional test',
+];
+
+let state = load();
+
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem(KEY));
+    if (s && Array.isArray(s.units)) return s;
+  } catch (e) {}
+  return { units: [], checklist: DEFAULT_CHECKLIST.slice() };
 }
-  </script>
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+}
+const uid = () => Math.random().toString(36).slice(2, 10);
+const today = () => new Date().toISOString().slice(0, 10);
 
+function result(u) {
+  const r = u.checks.map(c => c.result);
+  if (r.includes('fail')) return 'fail';
+  if (r.length && r.every(x => x === 'pass' || x === 'na')) return 'pass';
+  return 'pending';
+}
+
+function newUnit(serial, model, issue) {
+  return {
+    id: uid(), serial, model, issue, received: today(), status: 'Received', notes: '',
+    checks: state.checklist.map(name => ({ name, result: 'pending' })),
+  };
+}
+
+function el(tag, props = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === 'class') n.className = v;
+    else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+    else n[k] = v;
+  }
+  kids.flat().forEach(k => n.append(k));
+  return n;
+}
+
+function renderStats() {
+  const open = state.units.filter(u => u.status !== 'Closed').length;
+  const pass = state.units.filter(u => result(u) === 'pass').length;
+  const fail = state.units.filter(u => result(u) === 'fail').length;
+  const box = document.getElementById('stats');
+  box.replaceChildren(
+    ...[['Total', state.units.length], ['Open', open], ['Inspection passed', pass], ['Inspection failed', fail]]
+      .map(([label, n]) => el('div', { class: 'stat' }, el('b', { textContent: n }), el('span', { textContent: label })))
+  );
+}
+
+function renderFilter() {
+  const sel = document.getElementById('statusFilter');
+  const cur = sel.value || 'All';
+  sel.replaceChildren(...['All', ...STATUSES].map(s => el('option', { value: s, textContent: s === 'All' ? 'All statuses' : s })));
+  sel.value = cur;
+}
+
+function triButton(u, c, value, label) {
+  const on = c.result === value;
+  return el('button', {
+    type: 'button', textContent: label,
+    class: on ? 'on-' + value : '',
+    onclick: () => { c.result = on ? 'pending' : value; save(); render(true); },
+  });
+}
+
+function renderUnit(u, open) {
+  const res = result(u);
+  const badges = [
+    el('span', { class: 'badge' + (u.status === 'Closed' ? '' : ' warn'), textContent: u.status }),
+    res !== 'pending' ? el('span', { class: 'badge ' + res, textContent: res === 'pass' ? 'Passed' : 'Failed' }) : '',
+  ];
+  const done = u.checks.filter(c => c.result !== 'pending').length;
+
+  const statusSel = el('select', { onchange: e => { u.status = e.target.value; save(); render(true); } },
+    STATUSES.map(s => el('option', { value: s, textContent: s, selected: s === u.status })));
+  const notes = el('textarea', { rows: 3, value: u.notes, placeholder: 'Findings, root cause, next steps…',
+    oninput: e => { u.notes = e.target.value; save(); } });
+
+  const checks = u.checks.map(c => el('div', { class: 'check' },
+    el('span', { class: 'name', textContent: c.name }),
+    el('span', { class: 'tri' }, triButton(u, c, 'pass', 'Pass'), triButton(u, c, 'fail', 'Fail'), triButton(u, c, 'na', 'N/A'))));
+
+  const det = el('details', { class: 'unit', open },
+    el('summary', {},
+      el('span', { class: 'serial', textContent: u.serial }),
+      el('span', { class: 'model', textContent: u.model }),
+      el('span', { class: 'spacer' }),
+      el('span', { class: 'note', textContent: `${done}/${u.checks.length}` }),
+      badges),
+    el('div', { class: 'detail' },
+      el('div', { class: 'note', textContent: `Received ${u.received}` + (u.issue ? ` · Reported: ${u.issue}` : '') }),
+      el('div', {}, checks),
+      el('div', { class: 'grid2' },
+        el('label', { class: 'f' }, 'Status', statusSel),
+        el('label', { class: 'f' }, 'Notes', notes)),
+      el('div', {}, el('button', { class: 'danger', textContent: 'Delete unit', onclick: () => {
+        if (confirm('Delete ' + u.serial + '?')) { state.units = state.units.filter(x => x.id !== u.id); save(); render(); }
+      } }))));
+  det.dataset.id = u.id;
+  return det;
+}
+
+function render(keepOpen) {
+  const openIds = new Set(keepOpen
+    ? [...document.querySelectorAll('#list details[open]')].map(d => d.dataset.id) : []);
+  renderStats();
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const sf = document.getElementById('statusFilter').value || 'All';
+  const rows = state.units.filter(u =>
+    (sf === 'All' || u.status === sf) &&
+    (!q || [u.serial, u.model, u.issue].join(' ').toLowerCase().includes(q)));
+  const list = document.getElementById('list');
+  list.replaceChildren(...(rows.length
+    ? rows.map(u => renderUnit(u, openIds.has(u.id)))
+    : [el('div', { class: 'empty', textContent: state.units.length ? 'No units match.' : 'No units yet. Add one, or load the demo data.' })]));
+}
+
+function csvCell(v) {
+  v = String(v ?? '');
+  if (/^[=+\-@]/.test(v)) v = "'" + v;
+  return '"' + v.replace(/"/g, '""') + '"';
+}
+function exportCsv() {
+  const head = ['Serial', 'Model', 'Received', 'Status', 'Inspection', 'Reported issue', 'Failed checks', 'Notes'];
+  const rows = state.units.map(u => [u.serial, u.model, u.received, u.status, result(u), u.issue,
+    u.checks.filter(c => c.result === 'fail').map(c => c.name).join('; '), u.notes]);
+  const csv = [head, ...rows].map(r => r.map(csvCell).join(',')).join('\n');
+  const a = el('a', { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), download: `rma-${today()}.csv` });
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function loadDemo() {
+  const demo = [
+    ['DEMO-00101', 'Widget Pro', 'Will not power on', 'Closed', ['pass','pass','fail','pass','pass','pass','fail'], 'Dead power regulator. Replaced unit.'],
+    ['DEMO-00102', 'Widget Pro', 'Intermittent disconnects', 'Inspecting', ['pass','pass','pass','pass','pass','pending','pending'], ''],
+    ['DEMO-00103', 'Widget Mini', 'Cracked housing on arrival', 'Awaiting action', ['fail','pass','pass','pass','pass','na','pass'], 'Shipping damage. Waiting on carrier claim.'],
+    ['DEMO-00104', 'Sensor Hub', 'No data reported', 'Received', [], ''],
+    ['DEMO-00105', 'Sensor Hub', 'LED stuck on red', 'Closed', ['pass','pass','pass','pass','pass','pass','pass'], 'No fault found.'],
+  ];
+  for (const [serial, model, issue, status, results, notes] of demo) {
+    const u = newUnit(serial, model, issue);
+    u.status = status; u.notes = notes;
+    results.forEach((r, i) => { if (u.checks[i]) u.checks[i].result = r; });
+    state.units.push(u);
+  }
+  save(); render();
+}
+
+const $ = id => document.getElementById(id);
+$('addBtn').onclick = () => { $('addForm').reset(); $('addDlg').showModal(); };
+$('addCancel').onclick = () => $('addDlg').close();
+$('addForm').onsubmit = e => {
+  const f = new FormData(e.target);
+  state.units.unshift(newUnit(f.get('serial').trim(), f.get('model').trim(), f.get('issue').trim()));
+  save(); render();
+};
+$('checklistBtn').onclick = () => { $('clText').value = state.checklist.join('\n'); $('clDlg').showModal(); };
+$('clCancel').onclick = () => $('clDlg').close();
+$('clForm').onsubmit = () => {
+  const items = $('clText').value.split('\n').map(s => s.trim()).filter(Boolean);
+  if (items.length) { state.checklist = items; save(); }
+};
+$('csvBtn').onclick = exportCsv;
+$('demoBtn').onclick = loadDemo;
+$('clearBtn').onclick = () => { if (confirm('Delete all units?')) { state.units = []; save(); render(); } };
+$('search').oninput = () => render(true);
+$('statusFilter').onchange = () => render(true);
+
+renderFilter();
+render();
+</script>
 </body>
 </html>
